@@ -1,9 +1,13 @@
 import ast
 import math
 import operator
+import re
 from decimal import Decimal
 
+import sympy
+
 from bisseccsao import bissecao
+from newton import newton
 
 
 OPERACOES = {
@@ -20,7 +24,16 @@ def formatar_numero(valor):
     return format(Decimal(str(valor)), "f")
 
 
-def ler_funcao(expressao):
+def ler_funcao(expressao, simbolica=False):
+    funcoes = FUNCOES if not simbolica else {
+        **{nome: getattr(sympy, nome) for nome in FUNCOES if nome != "abs"},
+        "abs": sympy.Abs,
+    }
+    constantes = CONSTANTES if not simbolica else {"pi": sympy.pi, "e": sympy.E}
+    expressao = re.sub(r"(\d)\s*x\b", r"\1*x", expressao.strip())
+    expressao = re.sub(r"\b(sen|sin|cos|tan)\s*x\b", r"\1(x)", expressao)
+    expressao = re.sub(r"\bsen\b", "sin", expressao)
+    expressao = re.sub(r"\bln\b", "log", expressao)
     try:
         arvore = ast.parse(expressao.replace("^", "**"), mode="eval")
     except SyntaxError as erro:
@@ -28,19 +41,19 @@ def ler_funcao(expressao):
 
     def avaliar(no, x):
         if isinstance(no, ast.Constant) and type(no.value) in (int, float):
-            return float(no.value)
+            return sympy.Rational(str(no.value)) if simbolica else float(no.value)
         if isinstance(no, ast.Name):
             if no.id == "x":
                 return x
-            if no.id in CONSTANTES:
-                return CONSTANTES[no.id]
+            if no.id in constantes:
+                return constantes[no.id]
         if isinstance(no, ast.BinOp) and type(no.op) in OPERACOES:
             return OPERACOES[type(no.op)](avaliar(no.left, x), avaliar(no.right, x))
         if isinstance(no, ast.UnaryOp) and type(no.op) in (ast.UAdd, ast.USub):
             return OPERACOES[type(no.op)](avaliar(no.operand, x))
         if (isinstance(no, ast.Call) and isinstance(no.func, ast.Name)
-                and no.func.id in FUNCOES and len(no.args) == 1 and not no.keywords):
-            return FUNCOES[no.func.id](avaliar(no.args[0], x))
+                and no.func.id in funcoes and len(no.args) == 1 and not no.keywords):
+            return funcoes[no.func.id](avaliar(no.args[0], x))
         raise ValueError("Use apenas x, números, operações e funções matemáticas permitidas.")
 
     def funcao(x):
@@ -52,7 +65,29 @@ def ler_funcao(expressao):
         except (ArithmeticError, TypeError) as erro:
             raise ValueError(f"Não foi possível calcular a função em x = {formatar_numero(x)}.") from erro
 
+    if simbolica:
+        return avaliar(arvore.body, sympy.Symbol("x", real=True))
     return funcao
+
+
+def calcular_derivada(expressao):
+    x = sympy.Symbol("x", real=True)
+    expressao_derivada = sympy.diff(ler_funcao(expressao, simbolica=True), x)
+    calcular = sympy.lambdify(x, expressao_derivada, modules="math")
+
+    def derivada(valor):
+        try:
+            resultado = calcular(valor)
+            if not isinstance(resultado, (int, float)) or not math.isfinite(resultado):
+                raise ValueError("A derivada deve produzir um número real finito.")
+            return resultado
+        except (ArithmeticError, TypeError) as erro:
+            raise ValueError(f"Não foi possível calcular a derivada em x = {formatar_numero(valor)}.") from erro
+
+    texto = sympy.pretty(expressao_derivada, use_unicode=True, wrap_line=False)
+    texto = re.sub(r"\bsin\b", "sen", texto)
+    texto = re.sub(r"\d+(?:\.\d*)?[eE][+-]?\d+", lambda item: formatar_numero(item.group()), texto)
+    return derivada, texto
 
 
 def mostrar_iteracoes(historico):
@@ -61,14 +96,16 @@ def mostrar_iteracoes(historico):
     linhas = [["Iteração", "a", "b", "p", "f(p)", "Erro relativo"]]
     anterior = None
     for iteracao, a, b, p, fp in historico:
-        erro = "—" if anterior is None else (
-            "indefinido" if p == 0 else formatar_numero(abs((p - anterior) / p))
-        )
+        erro = erro_relativo(p, anterior)
         linhas.append([str(iteracao), *(formatar_numero(valor) for valor in (a, b, p, fp)), erro])
         anterior = p
-    larguras = [max(len(valor) for valor in coluna) for coluna in zip(*linhas)]
     print("\nIterações da bisseção")
-    print("Erro relativo = |(p atual - p anterior) / p atual| (sem porcentagem).")
+    print("Erro relativo = |(p atual - p anterior) / p atual|")
+    mostrar_tabela(linhas)
+
+
+def mostrar_tabela(linhas):
+    larguras = [max(len(valor) for valor in coluna) for coluna in zip(*linhas)]
     for indice, linha in enumerate(linhas):
         print(" | ".join(valor.rjust(largura) for valor, largura in zip(linha, larguras)))
         if indice == 0:
@@ -79,11 +116,9 @@ def executar_bissecao():
     print("\nBisseção — aproxima uma raiz de f(x) = 0.")
     print("Exemplo de função: x^3 + 4*x^2 - 10")
     print("Decimais com ponto, não vírgula: 0.002.")
-    funcao = ler_funcao(input("f(x) = "))
-    a = float(input("Início do intervalo (a, ex.: 1): "))
-    b = float(input("Fim do intervalo (b > a, ex.: 2): "))
-    tolerancia = float(input("Tolerância (erro máximo, ex.: 0.002): "))
-    max_iteracoes = int(input("Máximo de iterações (Enter = 1000): ").strip() or "1000")
+    expressao, funcao = solicitar_funcao()
+    a, b = solicitar("Intervalo [a, b] (ex.: [1, 2]): ", ler_intervalo)
+    tolerancia, max_iteracoes = solicitar_limites()
     fa, fb = funcao(a), funcao(b)
     historico = []
     try:
@@ -91,14 +126,119 @@ def executar_bissecao():
     finally:
         mostrar_iteracoes(historico)
     print("\nResultado")
+    print(f"Equação: {expressao} = 0")
     print(f"Intervalo inicial: [{formatar_numero(a)}, {formatar_numero(b)}]")
     print(f"f(a) = {formatar_numero(fa)}; f(b) = {formatar_numero(fb)}")
+    mostrar_resultado(funcao, raiz, historico)
+
+
+def ler_valor(expressao):
+    if ler_funcao(expressao, simbolica=True).free_symbols:
+        raise ValueError("Informe um valor numérico, sem x (ex.: pi/2 ou 10^-4).")
+    return ler_funcao(expressao)(0)
+
+
+def ler_intervalo(entrada):
+    entrada = entrada.strip()
+    if not (entrada.startswith("[") and entrada.endswith("]")):
+        raise ValueError("Use [a, b], com ponto nos decimais. Exemplo: [1.2, 2].")
+    partes = entrada[1:-1].split(",")
+    if len(partes) != 2:
+        raise ValueError("Informe exatamente dois extremos: [a, b].")
+    a, b = (ler_valor(parte) for parte in partes)
+    if a >= b:
+        raise ValueError("O intervalo deve ter a < b.")
+    return a, b
+
+
+def solicitar(mensagem, converter):
+    while True:
+        try:
+            return converter(input(mensagem).strip())
+        except ValueError as erro:
+            print(f"Erro: {str(erro).rstrip('.')}. Tente novamente.")
+
+
+def solicitar_funcao():
+    def converter(expressao):
+        ler_funcao(expressao, simbolica=True)
+        return expressao, ler_funcao(expressao)
+
+    return solicitar("f(x) = ", converter)
+
+
+def solicitar_limites():
+    def tolerancia(entrada):
+        valor = ler_valor(entrada)
+        if valor <= 0:
+            raise ValueError("A tolerância deve ser positiva.")
+        return valor
+
+    def iteracoes(entrada):
+        valor = int(entrada or "1000")
+        if valor <= 0:
+            raise ValueError("O limite deve ser um inteiro positivo.")
+        return valor
+
+    return (
+        solicitar("Tolerância (ex.: 0.002 ou 10^-4): ", tolerancia),
+        solicitar("Máximo de iterações (Enter = 1000): ", iteracoes),
+    )
+
+
+def erro_relativo(atual, anterior):
+    if anterior is None:
+        return "—"
+    if atual == 0:
+        return "indefinido"
+    return formatar_numero(abs((atual - anterior) / atual))
+
+
+def mostrar_resultado(funcao, raiz, historico):
     print(f"Iterações realizadas: {len(historico)}")
     print(f"Raiz aproximada: {formatar_numero(raiz)}")
     print(f"f(p) = {formatar_numero(funcao(raiz))}")
 
 
-METODOS = {"1": ("Bisseção", executar_bissecao)}
+def executar_newton():
+    print("\nNewton — derivada calculada automaticamente.")
+    print("Exemplo: x^2 - 2. Decimais com ponto.")
+    expressao, funcao = solicitar_funcao()
+    derivada, texto_derivada = calcular_derivada(expressao)
+    print("f'(x):\n" + texto_derivada)
+    entrada = solicitar("p0 ou intervalo (ex.: 1.2 ou [1.2, 2]): ",
+                        lambda texto: ler_intervalo(texto) if texto.startswith("[") else ler_valor(texto))
+    intervalo = entrada if isinstance(entrada, tuple) else None
+    p0 = intervalo[0] / 2 + intervalo[1] / 2 if intervalo else entrada
+    if intervalo:
+        print(f"Ponto médio: p0 = (a + b) / 2 = {formatar_numero(p0)}")
+    tolerancia, max_iteracoes = solicitar_limites()
+    historico = []
+    try:
+        raiz = newton(funcao, derivada, p0, tolerancia, max_iteracoes, historico=historico)
+    finally:
+        if historico:
+            linhas = [["Iteração", "p anterior", "p", "f(p)", "Erro absoluto", "Erro relativo"]]
+            for iteracao, anterior, p, fp in historico:
+                erro = abs(p - anterior)
+                relativo = erro_relativo(p, anterior)
+                linhas.append([str(iteracao), *(formatar_numero(v) for v in (anterior, p, fp, erro)), relativo])
+            print("\nIterações de Newton")
+            print("Erro absoluto = |p - p anterior|; relativo = |(p - p anterior) / p|.")
+            mostrar_tabela(linhas)
+    print("\nResultado de Newton")
+    print(f"Equação: {expressao} = 0")
+    print("Derivada:\n" + texto_derivada)
+    if intervalo is not None:
+        print(f"Intervalo informado: [{formatar_numero(intervalo[0])}, {formatar_numero(intervalo[1])}]")
+    print(f"Aproximação inicial: {formatar_numero(p0)}")
+    print(f"Tolerância entre aproximações: {formatar_numero(tolerancia)}")
+    mostrar_resultado(funcao, raiz, historico)
+    if intervalo is not None and not intervalo[0] <= raiz <= intervalo[1]:
+        print("Atenção: a raiz encontrada ficou fora do intervalo informado.")
+
+
+METODOS = {"1": ("Bisseção", executar_bissecao), "2": ("Newton", executar_newton)}
 
 
 def executar():

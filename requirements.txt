@@ -1,2 +1,2 @@
-# O projeto usa apenas a biblioteca padrao do Python 3.
-# Nenhuma dependencia externa e necessaria no momento.
+## SymPy: calcula automaticamente a derivada da função para o método de Newton.
+sympy>=1.14,<2
