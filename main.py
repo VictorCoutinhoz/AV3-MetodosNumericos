@@ -8,6 +8,7 @@ import sympy
 
 from bisseccsao import bissecao
 from newton import newton
+from euler import euler
 
 
 OPERACOES = {
@@ -24,14 +25,19 @@ def formatar_numero(valor):
     return format(Decimal(str(valor)), "f")
 
 
-def ler_funcao(expressao, simbolica=False):
+def ler_funcao(expressao, simbolica=False, variaveis=("x",)):
     funcoes = FUNCOES if not simbolica else {
         **{nome: getattr(sympy, nome) for nome in FUNCOES if nome != "abs"},
         "abs": sympy.Abs,
     }
     constantes = CONSTANTES if not simbolica else {"pi": sympy.pi, "e": sympy.E}
-    expressao = re.sub(r"(\d)\s*x\b", r"\1*x", expressao.strip())
-    expressao = re.sub(r"\b(sen|sin|cos|tan)\s*x\b", r"\1(x)", expressao)
+    nomes = "|".join(variaveis)
+    expressao = re.sub(
+        r"\b(sen|sin|cos|tan)\s*(\d+(?:\.\d+)?)\s*\*?\s*(" + nomes + r")\b",
+        r"\1(\2*\3)", expressao,
+    )
+    expressao = re.sub(r"(\d)\s*(" + nomes + r")\b", r"\1*\2", expressao.strip())
+    expressao = re.sub(r"\b(sen|sin|cos|tan)\s*(" + nomes + r")\b", r"\1(\2)", expressao)
     expressao = re.sub(r"\bsen\b", "sin", expressao)
     expressao = re.sub(r"\bln\b", "log", expressao)
     try:
@@ -43,8 +49,8 @@ def ler_funcao(expressao, simbolica=False):
         if isinstance(no, ast.Constant) and type(no.value) in (int, float):
             return sympy.Rational(str(no.value)) if simbolica else float(no.value)
         if isinstance(no, ast.Name):
-            if no.id == "x":
-                return x
+            if no.id in x:
+                return x[no.id]
             if no.id in constantes:
                 return constantes[no.id]
         if isinstance(no, ast.BinOp) and type(no.op) in OPERACOES:
@@ -54,19 +60,23 @@ def ler_funcao(expressao, simbolica=False):
         if (isinstance(no, ast.Call) and isinstance(no.func, ast.Name)
                 and no.func.id in funcoes and len(no.args) == 1 and not no.keywords):
             return funcoes[no.func.id](avaliar(no.args[0], x))
-        raise ValueError("Use apenas x, números, operações e funções matemáticas permitidas.")
+        raise ValueError(f"Use apenas {', '.join(variaveis)}, números, operações e funções matemáticas permitidas.")
 
-    def funcao(x):
+    def funcao(*valores):
+        if len(valores) != len(variaveis):
+            raise ValueError(f"Informe valores para {', '.join(variaveis)}.")
+        x = dict(zip(variaveis, valores))
         try:
             valor = avaliar(arvore.body, x)
             if not isinstance(valor, (int, float)) or not math.isfinite(valor):
                 raise ValueError("A função deve produzir um número real finito.")
             return valor
         except (ArithmeticError, TypeError) as erro:
-            raise ValueError(f"Não foi possível calcular a função em x = {formatar_numero(x)}.") from erro
+            ponto = ', '.join(f"{nome} = {formatar_numero(valor)}" for nome, valor in x.items())
+            raise ValueError(f"Não foi possível calcular a função em {ponto}.") from erro
 
     if simbolica:
-        return avaliar(arvore.body, sympy.Symbol("x", real=True))
+        return avaliar(arvore.body, {nome: sympy.Symbol(nome, real=True) for nome in variaveis})
     return funcao
 
 
@@ -117,7 +127,7 @@ def executar_bissecao():
     print("Exemplo de função: x^3 + 4*x^2 - 10")
     print("Decimais com ponto, não vírgula: 0.002.")
     expressao, funcao = solicitar_funcao()
-    a, b = solicitar("Intervalo [a, b] (ex.: [1, 2]): ", ler_intervalo)
+    a, b = solicitar("Intervalo (ex.: 1,2 ou [1, 2]): ", ler_intervalo)
     tolerancia, max_iteracoes = solicitar_limites()
     fa, fb = funcao(a), funcao(b)
     historico = []
@@ -140,11 +150,13 @@ def ler_valor(expressao):
 
 def ler_intervalo(entrada):
     entrada = entrada.strip()
-    if not (entrada.startswith("[") and entrada.endswith("]")):
-        raise ValueError("Use [a, b], com ponto nos decimais. Exemplo: [1.2, 2].")
-    partes = entrada[1:-1].split(",")
+    if entrada.startswith("[") and entrada.endswith("]"):
+        entrada = entrada[1:-1]
+    elif "[" in entrada or "]" in entrada:
+        raise ValueError("Feche os colchetes ou use apenas a,b. Exemplo: 0,1.")
+    partes = entrada.split(",")
     if len(partes) != 2:
-        raise ValueError("Informe exatamente dois extremos: [a, b].")
+        raise ValueError("Informe dois extremos separados por vírgula. Exemplo: 0,1.")
     a, b = (ler_valor(parte) for parte in partes)
     if a >= b:
         raise ValueError("O intervalo deve ter a < b.")
@@ -159,12 +171,12 @@ def solicitar(mensagem, converter):
             print(f"Erro: {str(erro).rstrip('.')}. Tente novamente.")
 
 
-def solicitar_funcao():
+def solicitar_funcao(variaveis=("x",)):
     def converter(expressao):
-        ler_funcao(expressao, simbolica=True)
-        return expressao, ler_funcao(expressao)
+        ler_funcao(expressao, simbolica=True, variaveis=variaveis)
+        return expressao, ler_funcao(expressao, variaveis=variaveis)
 
-    return solicitar("f(x) = ", converter)
+    return solicitar(f"f({', '.join(variaveis)}) = ", converter)
 
 
 def solicitar_limites():
@@ -206,8 +218,8 @@ def executar_newton():
     expressao, funcao = solicitar_funcao()
     derivada, texto_derivada = calcular_derivada(expressao)
     print("f'(x):\n" + texto_derivada)
-    entrada = solicitar("p0 ou intervalo (ex.: 1.2 ou [1.2, 2]): ",
-                        lambda texto: ler_intervalo(texto) if texto.startswith("[") else ler_valor(texto))
+    entrada = solicitar("p0 ou intervalo (ex.: 1.2 ou 1.2,2): ",
+                        lambda texto: ler_intervalo(texto) if "," in texto or "[" in texto or "]" in texto else ler_valor(texto))
     intervalo = entrada if isinstance(entrada, tuple) else None
     p0 = intervalo[0] / 2 + intervalo[1] / 2 if intervalo else entrada
     if intervalo:
@@ -238,7 +250,43 @@ def executar_newton():
         print("Atenção: a raiz encontrada ficou fora do intervalo informado.")
 
 
-METODOS = {"1": ("Bisseção", executar_bissecao), "2": ("Newton", executar_newton)}
+def executar_euler():
+    print("\nEuler — aproxima a solução de y' = f(t, y).")
+    print("Exemplo: y - t^2 + 1. Decimais com ponto.")
+    expressao, funcao = solicitar_funcao(("t", "y"))
+    a, b = solicitar("Intervalo (ex.: 0,2 ou [0, 2]): ", ler_intervalo)
+    alfa = solicitar("Condição inicial y(a) (ex.: 0.5): ", ler_valor)
+
+    def passo(entrada):
+        h = ler_valor(entrada)
+        if h <= 0:
+            raise ValueError("h deve ser positivo.")
+        quantidade = (b - a) / h
+        if not math.isfinite(quantidade):
+            raise ValueError("Não foi possível calcular o número de passos.")
+        n = round(quantidade)
+        if n < 1 or not math.isclose(quantidade, n, rel_tol=0, abs_tol=1e-9):
+            raise ValueError("h deve dividir o intervalo em um número inteiro de passos.")
+        return h, n
+
+    h, n = solicitar("Tamanho do passo h (ex.: 0.25): ", passo)
+    historico = []
+    try:
+        resultado = euler(funcao, a, b, alfa, n, historico=historico)
+    finally:
+        if historico:
+            linhas = [["Passo", "t", "w (aproximação de y)"]]
+            linhas.extend([str(i), formatar_numero(t), formatar_numero(w)] for i, t, w in historico)
+            print("\nPassos de Euler (linha 0 = condição inicial)")
+            mostrar_tabela(linhas)
+    print("\nResultado de Euler")
+    print(f"y' = {expressao}; y({formatar_numero(a)}) = {formatar_numero(alfa)}")
+    print(f"Passo h = {formatar_numero(h)}; N = {n}")
+    print(f"y({formatar_numero(b)}) ≈ {formatar_numero(resultado)}")
+
+
+METODOS = {"1": ("Bisseção", executar_bissecao), "2": ("Newton", executar_newton),
+           "3": ("Euler", executar_euler)}
 
 
 def executar():

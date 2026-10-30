@@ -39,7 +39,7 @@ def newton(funcao, derivada, p0, tolerancia=1e-6, max_iteracoes=1000, historico=
         # Passo 4: para se a diferença entre os chutes for menor que TOL.
         if abs(p - p0) < tolerancia:
             return p
-        # Passo 6: atualiza o chute.
+        # Passo 6: atualiza.
         p0 = p
     # Passo 7: avisa que o limite de iterações acabou.
     raise ValueError(f"O método falhou após {max_iteracoes} iterações. N0 = {max_iteracoes}.")
