@@ -1,6 +1,6 @@
 import ast
 
-from funcoes import analisar, ler_funcao
+from .funcoes import analisar, ler_funcao
 
 
 def texto(no):

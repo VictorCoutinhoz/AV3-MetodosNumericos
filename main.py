@@ -1,13 +1,13 @@
 import math
 from decimal import Decimal
 
-from bisseccsao import bissecao
-from derivada import calcular_derivada
-from euler import euler
-from euler_modificado import euler_modificado
-from funcoes import ler_funcao, ler_valor
-from newton import newton
-from ponto_medio import ponto_medio
+from expressoes.derivada import calcular_derivada
+from expressoes.funcoes import ler_funcao, ler_valor
+from metodos.bissecao import bissecao
+from metodos.euler import euler
+from metodos.euler_modificado import euler_modificado
+from metodos.newton import newton
+from metodos.ponto_medio import ponto_medio
 
 
 def solicitar(mensagem, converter):

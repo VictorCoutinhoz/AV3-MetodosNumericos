@@ -72,7 +72,7 @@ Os dois métodos mostram a tabela completa, incluindo a condição inicial na li
 
 ## Como a derivada é calculada
 
-As regras estão em `derivada.py`, com comentários indicando as fórmulas:
+As regras estão em `expressoes/derivada.py`, com comentários indicando as fórmulas:
 
 - Constante e variável: `c' = 0` e `x' = 1`.
 - Soma e subtração: deriva cada termo.
@@ -92,14 +92,28 @@ derivada. Por exemplo, `abs(x)` não tem derivada em zero e `log(x)` exige `x > 
 
 ## Organização
 
-- `main.py`: menu, entradas e tabelas.
-- `funcoes.py`: leitura e cálculo das expressões matemáticas.
-- `derivada.py`: regras de derivação.
-- `bisseccsao.py`: método da bisseção.
-- `newton.py`: método de Newton.
-- `euler.py`: método de Euler.
-- `ponto_medio.py`: método do ponto médio.
-- `euler_modificado.py`: método de Euler modificado.
+```text
+AV3-MetodosNumericos/
+├── main.py
+├── metodos/
+│   ├── __init__.py
+│   ├── bissecao.py
+│   ├── newton.py
+│   ├── euler.py
+│   ├── ponto_medio.py
+│   └── euler_modificado.py
+├── expressoes/
+│   ├── __init__.py
+│   ├── funcoes.py
+│   └── derivada.py
+├── README.md
+├── requirements.txt
+└── .gitignore
+```
+
+- `main.py`: interface com menu, entradas e tabelas.
+- `metodos/`: algoritmos numéricos; recebem dados e devolvem resultados, sem `input()` ou `print()`.
+- `expressoes/`: leitura e cálculo das expressões matemáticas e regras de derivação.
 
 Cada método tem seu algoritmo completo no próprio arquivo.
 
