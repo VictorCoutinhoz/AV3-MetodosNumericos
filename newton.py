@@ -36,6 +36,10 @@ def newton(funcao, derivada, p0, tolerancia=1e-6, max_iteracoes=1000, historico=
             raise ValueError("A função deve retornar valores finitos.")
         if historico is not None:
             historico.append((iteracao, p0, p, fp))
+        if fp == 0:
+            return p
+        if p == p0:
+            raise ValueError("Newton não avançou: limite da precisão disponível.")
         # Passo 4: para se a diferença entre os chutes for menor que TOL.
         if abs(p - p0) < tolerancia:
             return p

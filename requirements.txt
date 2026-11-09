@@ -1,2 +1,1 @@
-## SymPy: calcula automaticamente a derivada da função para o método de Newton.
-sympy>=1.14,<2
+# Sem dependências externas. O projeto usa apenas a biblioteca padrão do Python.

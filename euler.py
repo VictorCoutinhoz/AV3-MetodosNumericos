@@ -12,6 +12,7 @@ def euler(funcao, a, b, alfa, n, historico=None):
     h = (b - a) / n
     if not isfinite(h) or h <= 0:
         raise ValueError("Não foi possível calcular um passo finito e positivo.")
+
     t, w = a, alfa
     if historico is not None:
         historico.append((0, t, w))
