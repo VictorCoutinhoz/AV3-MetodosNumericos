@@ -1,120 +1,259 @@
 # AV3 — Métodos Numéricos
 
-Trabalho da disciplina de Métodos Numéricos, desenvolvido em Python para resolver questões das notas de aula e acompanhar os cálculos passo a passo.
+Calculadora em Python para resolver as questões da disciplina e acompanhar os resultados em tabelas.
 
-## Métodos disponíveis
+## Executar
 
-| Opção | Método | O que faz |
-| :---: | --- | --- |
-| 1 | Bisseção | Encontra uma raiz dividindo o intervalo ao meio. |
-| 2 | Newton | Encontra uma raiz usando regras de derivação programadas no projeto. |
-| 3 | Euler | Aproxima a solução de uma equação diferencial passo a passo. |
-| 4 | Ponto médio | Runge-Kutta de segunda ordem com a inclinação no meio do passo. |
-| 5 | Euler modificado | Runge-Kutta de segunda ordem com a média de duas inclinações. |
-
-As contas aparecem em tabelas. Bisseção e Newton também mostram o erro relativo entre as aproximações.
-
-## Como executar
-
-Com o **Python 3.9 ou superior** instalado, rode no terminal (não precisa instalar bibliotecas):
+Com **Python 3.9+**, na pasta do projeto:
 
 ```bash
 python main.py
 ```
 
-Depois, escolha o método no menu e informe os dados da questão.
+Escolha um método e informe os dados. Não é necessário instalar bibliotecas.
 
-## Exemplo com Euler
+## Métodos
+
+| Opção | Método |
+| :---: | --- |
+| 1 | [Bisseção](metodos/bissecao.py) |
+| 2 | [Newton](metodos/newton.py) |
+| 3 | [Euler](metodos/euler.py) |
+| 4 | [Ponto médio](metodos/ponto_medio.py) |
+| 5 | [Euler modificado](metodos/euler_modificado.py) |
+| 6 | [Runge-Kutta de quarta ordem](metodos/runge_kutta_4ordem.py) |
+| 8 | [Adams-Bashforth de quarta ordem](metodos/adams_bashforth_4ordem.py) |
+
+**0** encerra o programa. A opção **7**, RK4 para sistemas, ainda não está disponível.
+
+Expanda um método para ver a ideia, o algoritmo resumido e um exemplo de uso.
+Nas EDOs, `w` aproxima `y(t)`, `alfa = y(a)` e `N = (b-a)/h`.
+
+<details>
+<summary><strong>1 — Bisseção</strong></summary>
+
+Encontra uma raiz de `f(x) = 0` dividindo o intervalo ao meio. A função deve ser
+contínua no intervalo e ter sinais opostos nos extremos, ou uma raiz em um deles.
+
+**Algoritmo resumido**
 
 ```text
-Função: cos2t + sen3t
-Intervalo: [0, 1]
-Condição inicial: 1
-Passo h: 0.25
+Se um extremo for raiz, retorne esse extremo.
+Repita até o limite de iterações:
+    p = a/2 + b/2
+    Se f(p) = 0 ou (b-a)/2 < TOL: retorne p
+    Se f(a) e f(p) têm sinais opostos: b = p
+    Senão: a = p
 ```
 
-Nesse caso, o programa calcula **4 passos** e mostra os valores de `t` e a aproximação de `y` em cada um deles. O passo `h` deve dividir o intervalo em partes iguais.
-
-## Na hora de digitar
-
-- **Decimais:** use ponto, como `0.25`.
-- **Intervalos:** `0,1` ou `[0, 1]`. A vírgula separa os extremos.
-- **Potências:** `x^2` ou `x**2`. Para a tolerância, pode usar `10^-4`.
-- **Trigonometria:** `sen`, `cos` e `tan`, sempre em radianos. Aceita `cos2t`; para argumentos compostos, use `cos(2*t + 1)`.
-- **Newton:** informe um ponto inicial ou um intervalo; o intervalo usa seu ponto médio como chute inicial.
-- **Euler:** informe o passo `h`, sem tolerância de parada.
-- **Ponto médio e Euler modificado:** usam os mesmos dados de Euler: `f(t, y)`, intervalo, condição inicial e passo `h`.
-
-## Runge-Kutta de segunda ordem
-
-As fórmulas seguem as notas de aula (seção 5.4, páginas numeradas 45–47).
-Em cada passo, `w` aproxima `y(t)` e `k1 = f(t, w)`:
+**Como usar:** escolha **1** e informe:
 
 ```text
-Ponto médio:
+Função: x^3 + 4*x^2 - 10
+Intervalo: [1, 2]
+Tolerância: 0.002
+Máximo de iterações: Enter para usar 1000
+```
+
+Resultado: **raiz ≈ 1.365234375**.
+
+</details>
+
+<details>
+<summary><strong>2 — Newton</strong></summary>
+
+Encontra uma raiz a partir de um chute, usando a derivada para corrigir cada
+aproximação. A derivada é calculada por regras programadas no projeto.
+
+**Algoritmo resumido**
+
+```text
+Repita até o limite de iterações:
+    Se f(p0) = 0: retorne p0
+    Se f'(p0) = 0: informe erro
+    p = p0 - f(p0)/f'(p0)
+    Se f(p) = 0 ou |p-p0| < TOL: retorne p
+    p0 = p
+```
+
+**Como usar:** escolha **2** e informe:
+
+```text
+Função: x^2 - 2
+p0 ou intervalo: 1
+Tolerância: 10^-6
+Máximo de iterações: Enter para usar 1000
+```
+
+Resultado: **raiz ≈ 1.4142135624**. Se informar um intervalo, o programa usa
+seu ponto médio como chute; isso não garante que a raiz fique dentro dele.
+
+</details>
+
+<details>
+<summary><strong>3 — Euler</strong></summary>
+
+Aproxima a solução de `y' = f(t, y)` usando a inclinação no início de cada passo.
+
+**Algoritmo resumido**
+
+```text
+t = a; w = alfa
+Para i de 1 até N:
+    w = w + h*f(t, w)
+    t = a + i*h
+```
+
+**Como usar:** escolha **3** e informe:
+
+```text
+Função: y - t^2 + 1
+Intervalo: [0, 2]
+Condição inicial: 0.5
+Passo h: 0.2
+```
+
+Resultado: **y(2) ≈ 4.8657845**, após 10 passos.
+
+</details>
+
+<details>
+<summary><strong>4 — Ponto médio</strong></summary>
+
+É um Runge-Kutta de segunda ordem: estima um valor na metade do passo e usa
+a inclinação nesse ponto para avançar.
+
+**Algoritmo resumido**
+
+```text
+t = a; w = alfa
+Para i de 1 até N:
+    k1 = f(t, w)
     k2 = f(t + h/2, w + h*k1/2)
-    próximo w = w + h*k2
-
-Euler modificado:
-    k2 = f(t + h, w + h*k1)
-    próximo w = w + h*(k1 + k2)/2
+    w = w + h*k2
+    t = a + i*h
 ```
 
-Por exemplo, para `y' = y - t^2 + 1`, intervalo `[0, 2]`, `y(0) = 0.5`
-e `h = 0.2`, as duas primeiras aproximações são:
+**Como usar:** escolha **4** e informe:
 
-| t | Ponto médio | Euler modificado |
-| --- | --- | --- |
-| 0.2 | 0.828 | 0.826 |
-| 0.4 | 1.21136 | 1.20692 |
+```text
+Função: y - t^2 + 1
+Intervalo: [0, 2]
+Condição inicial: 0.5
+Passo h: 0.2
+```
 
-Os dois métodos mostram a tabela completa, incluindo a condição inicial na linha 0.
+Resultado: **y(2) ≈ 5.2903695**, após 10 passos.
 
-## Como a derivada é calculada
+</details>
 
-As regras estão em `expressoes/derivada.py`, com comentários indicando as fórmulas:
+<details>
+<summary><strong>5 — Euler modificado</strong></summary>
 
-- Constante e variável: `c' = 0` e `x' = 1`.
-- Soma e subtração: deriva cada termo.
-- Produto: `(u*v)' = u'*v + u*v'`.
-- Quociente: `(u/v)' = (u'*v - u*v') / v^2`.
-- Potência com expoente constante: `(u^c)' = c*u^(c-1)*u'`.
-- Potência com expoente variável: usa a regra com logaritmo, para base positiva.
-- Regra da cadeia para `sen`, `cos`, `tan`, `sqrt`, `exp`, `ln`/`log` e `abs`.
+É um Runge-Kutta de segunda ordem: faz uma previsão com Euler e avança usando
+a média das inclinações inicial e prevista no fim do passo.
 
-O módulo `ast` do Python apenas identifica a estrutura da expressão. As regras
-matemáticas são implementadas pelo projeto, sem SymPy e sem aproximação por
-diferenças finitas. Por exemplo, `x^3 + 4*x^2 - 10` gera uma expressão equivalente
-a `3*x^2 + 8*x`.
+**Algoritmo resumido**
 
-Para usar Newton, o ponto precisa pertencer ao domínio da função e da fórmula da
-derivada. Por exemplo, `abs(x)` não tem derivada em zero e `log(x)` exige `x > 0`.
+```text
+t = a; w = alfa
+Para i de 1 até N:
+    k1 = f(t, w)
+    k2 = f(t + h, w + h*k1)
+    w = w + h*(k1 + k2)/2
+    t = a + i*h
+```
+
+**Como usar:** escolha **5** e informe:
+
+```text
+Função: y - t^2 + 1
+Intervalo: [0, 2]
+Condição inicial: 0.5
+Passo h: 0.2
+```
+
+Resultado: **y(2) ≈ 5.2330546**, após 10 passos.
+
+</details>
+
+<details>
+<summary><strong>6 — Runge-Kutta de quarta ordem</strong></summary>
+
+Combina quatro inclinações: uma no início, duas no meio e uma no fim do passo.
+Os incrementos `k1` a `k4` já incluem o fator `h`.
+
+**Algoritmo resumido**
+
+```text
+t = a; w = alfa
+Para i de 1 até N:
+    k1 = h*f(t, w)
+    k2 = h*f(t + h/2, w + k1/2)
+    k3 = h*f(t + h/2, w + k2/2)
+    k4 = h*f(t + h, w + k3)
+    w = w + (k1 + 2*k2 + 2*k3 + k4)/6
+    t = a + i*h
+```
+
+**Como usar:** escolha **6** e informe:
+
+```text
+Função: y - t^2 + 1
+Intervalo: [0, 2]
+Condição inicial: 0.5
+Passo h: 0.2
+```
+
+Resultado: **y(2) ≈ 5.3053630**, após 10 passos.
+
+</details>
+
+<details>
+<summary><strong>8 — Adams-Bashforth de quarta ordem</strong></summary>
+
+É um método explícito de quatro passos: combina a inclinação atual e as três
+anteriores. Precisa de `w0`, `w1`, `w2` e `w3` para começar.
+
+**Algoritmo resumido**
+
+```text
+w[0] = alfa
+Obtenha w[1], w[2] e w[3]: informados ou calculados com RK4.
+t[i] = a + i*h
+Para i de 3 até N-1:
+    w[i+1] = w[i] + h/24 * (55*f(t[i], w[i]) - 59*f(t[i-1], w[i-1])
+                           + 37*f(t[i-2], w[i-2]) - 9*f(t[i-3], w[i-3]))
+```
+
+**Como usar:** escolha **8** e informe:
+
+```text
+Função: y - t^2 + 1
+Intervalo: [0, 2]
+Condição inicial: 0.5
+Passo h: 0.2
+w1,w2,w3: Enter para calcular com RK4
+```
+
+Ou informe os três valores separados por vírgulas, correspondentes aos tempos
+`a+h`, `a+2h` e `a+3h`. O intervalo deve ter pelo menos quatro passos.
+
+Com os iniciais calculados por RK4: **y(2) ≈ 5.3075082**. O primeiro avanço
+por Adams-Bashforth ocorre em `t = 0.8`, com **y(0.8) ≈ 2.1272892**.
+
+</details>
+
+## Dicas de entrada
+
+- Decimais com ponto: `0.25`. Intervalos: `0,2` ou `[0, 2]`.
+- Potências: `x^2` ou `x**2`. Tolerância: `10^-4`.
+- Funções: `sen(x)`, `cos(x)`, `tan(x)`, `sqrt(x)`, `exp(x)`, `ln(x)` e `abs(x)`. Ângulos em radianos.
+- Newton aceita um chute ou intervalo; o intervalo usa o ponto médio como chute.
+- Nas EDOs, `h` deve dividir o intervalo em partes iguais. Adams-Bashforth exige pelo menos quatro passos e aceita `w1,w2,w3` informados ou calculados com RK4.
 
 ## Organização
 
-```text
-AV3-MetodosNumericos/
-├── main.py
-├── metodos/
-│   ├── __init__.py
-│   ├── bissecao.py
-│   ├── newton.py
-│   ├── euler.py
-│   ├── ponto_medio.py
-│   └── euler_modificado.py
-├── expressoes/
-│   ├── __init__.py
-│   ├── funcoes.py
-│   └── derivada.py
-├── README.md
-├── requirements.txt
-└── .gitignore
-```
-
-- `main.py`: interface com menu, entradas e tabelas.
-- `metodos/`: algoritmos numéricos; recebem dados e devolvem resultados, sem `input()` ou `print()`.
-- `expressoes/`: leitura e cálculo das expressões matemáticas e regras de derivação.
-
-Cada método tem seu algoritmo completo no próprio arquivo.
-
-*Os demais métodos do trabalho serão adicionados ao longo do projeto.*
+- **[main.py](main.py)** — menu, entradas e tabelas.
+- **[metodos/](metodos/)** — um arquivo para cada algoritmo.
+- **[expressoes/](expressoes/)** — leitura de funções e regras de derivação programadas no projeto.

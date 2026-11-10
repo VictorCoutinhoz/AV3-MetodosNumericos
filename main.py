@@ -3,11 +3,13 @@ from decimal import Decimal
 
 from expressoes.derivada import calcular_derivada
 from expressoes.funcoes import ler_funcao, ler_valor
+from metodos.adams_bashforth_4ordem import adams_bashforth_4ordem
 from metodos.bissecao import bissecao
 from metodos.euler import euler
 from metodos.euler_modificado import euler_modificado
 from metodos.newton import newton
 from metodos.ponto_medio import ponto_medio
+from metodos.runge_kutta_4ordem import runge_kutta_4ordem
 
 
 def solicitar(mensagem, converter):
@@ -106,7 +108,9 @@ def executar_raiz(opcao):
 
 def executar_edo(opcao):
     metodos = {"3": ("Euler", euler), "4": ("Ponto médio", ponto_medio),
-               "5": ("Euler modificado", euler_modificado)}
+               "5": ("Euler modificado", euler_modificado),
+               "6": ("Runge-Kutta de quarta ordem", runge_kutta_4ordem),
+               "8": ("Adams-Bashforth de quarta ordem", adams_bashforth_4ordem)}
     nome, metodo = metodos[opcao]
     print(f"\nMétodo de {nome}: y' = f(t, y)")
     expressao, funcao = solicitar_funcao(("t", "y"))
@@ -121,12 +125,28 @@ def executar_edo(opcao):
         n = round(quantidade)
         if not math.isclose(quantidade, n, rel_tol=0, abs_tol=1e-9):
             raise ValueError("h deve dividir o intervalo em um número inteiro de passos.")
+        if opcao == "8" and n < 4:
+            raise ValueError("Adams-Bashforth precisa de pelo menos quatro passos.")
         return n
 
     n = solicitar("Passo h (ex.: 0.25): ", ler_passos)
+    iniciais = None
+    if opcao == "8":
+        def ler_iniciais(entrada):
+            if not entrada:
+                return None
+            valores = tuple(ler_valor(parte) for parte in entrada.split(","))
+            if len(valores) != 3:
+                raise ValueError("Informe w1,w2,w3 separados por vírgulas.")
+            return valores
+
+        iniciais = solicitar("w1,w2,w3 (Enter = calcular com RK4): ", ler_iniciais)
     historico = []
     try:
-        resultado = metodo(funcao, a, b, alfa, n, historico)
+        if opcao == "8":
+            resultado = metodo(funcao, a, b, alfa, n, historico, iniciais)
+        else:
+            resultado = metodo(funcao, a, b, alfa, n, historico)
     finally:
         mostrar_tabela(["Passo", "t", "w (aproximação de y)"], historico)
     print(f"\ny' = {expressao}; y({numero(a)}) = {numero(alfa)}")
@@ -138,13 +158,15 @@ def executar():
     while True:
         try:
             print("\n1 - Bisseção\n2 - Newton\n3 - Euler"
-                  "\n4 - Ponto médio\n5 - Euler modificado\n0 - Sair")
+                  "\n4 - Ponto médio\n5 - Euler modificado"
+                  "\n6 - Runge-Kutta de quarta ordem"
+                  "\n8 - Adams-Bashforth de quarta ordem\n0 - Sair")
             opcao = input("Escolha um método: ").strip()
             if opcao == "0":
                 return
             if opcao in ("1", "2"):
                 executar_raiz(opcao)
-            elif opcao in ("3", "4", "5"):
+            elif opcao in ("3", "4", "5", "6", "8"):
                 executar_edo(opcao)
             else:
                 print("Opção inválida.")
